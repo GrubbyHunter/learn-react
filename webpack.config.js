@@ -9,7 +9,7 @@ let path = require('path')
 
 module.exports = {
   watch: true,
-  devtool: 'cheap-module-eval-source-map',
+  devtool: 'source-map',
 
   entry: path.resolve(__dirname, './index.js'),
   output: {
