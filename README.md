@@ -4,23 +4,48 @@
 
 ### 1 首字母大写的标签被识别为 React 组件，babel 将它转化为 React.createElement
 
-1.1 createElement 方法：设置属性 props，标签类型 tag，以及组件的类型(即 React 的 class)，生成一个 Vnode 类型对象
-// Refs: 全局变量，存放虚拟 DOM 的引用
-Vnode 主要有以下几个属性{
-type：Component 的构造函数
-tag：类型
-props：属性
+1.1 createElement 方法：
+参数：
+type - 组件的构造函数(Component)
+config - 传入的需要创建的组件实例的自定义属性，config 里面有 props 这些
+...children - 第三个参数是一个 ES6 的 reset 参数，标识后面的参数不限个数
+
+返回值：
+ReactElement - 一个 React 组件实例
+
+1.2 ReactElement 构造方法(type, tag, props, key, ref, owner)
+type：构造函数
+tag：5-默认值，2-React 组件的构造函数，1-普通函数
+props:自定义属性,
+key,
+ref,
+Renderer.currentOwner
+
+返回值：
+返回一个对象{
+type,
+tag,
+props,
+owner
 }
 
-### 2 进行 renderByAnu 渲染方法
+1.3 Fiber 对象{
 
-2.1 renderByAnu 参数：vnode(上一步中创建的 Vnode 构造函数对象), container(需要放置页面的容器 DOM 对象), callback(渲染完成回调函数)
-topNodes:全局数组变量
+}
+
+### 2 进行 render 渲染方法
+
+2.1 render 方法
+参数：
+vnode:上一步中创建的 React 组件虚拟 Dom 对象,
+container：需要放置页面的容器 DOM 对象,
+callback: 渲染完成回调函数
 
 ```javascript
-renderByAnu(vnode, root, callback) {
-  //生成外部容器
-  let wrapperVnode = createElement ("AnuInternalFiber", ) => new Vnode()
+render(vnode, root, callback) {
+  //生成外部容器, 这里的container其实就是一个Fiber对象实例
+  let container = createContainer(root)
+
   let rootIndex = topNodes.indexOf(root)
   let wrapperFiber
   if(rootIndex !== -1) {

@@ -3,8 +3,10 @@ let ReactDOM = require("ReactDOM");
 
 class ComponentContainer extends React.Component {
   componentWillMount() {
-    debugger;
-    this.setState({ x: 7 });
+    window.setTimeout(() => {
+      this.setState({ x: 1 });
+      this.setState({ x: 2 });
+    }, 3000);
   }
 
   componentWillUpdate() {}
@@ -12,9 +14,14 @@ class ComponentContainer extends React.Component {
   render() {
     let { x } = this.state;
 
-    return <div name="tt" obj={{ x, y: 2 }} />;
+    return (
+      <div name="tt" onClick={this.handleClick.bind(this)} obj={x}>
+        {x}
+      </div>
+    );
   }
 
+  handleClick() {}
   componentDidMount() {}
 
   componentDidUpdate() {}
