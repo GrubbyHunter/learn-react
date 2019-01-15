@@ -3,10 +3,7 @@ let ReactDOM = require("ReactDOM");
 
 class ComponentContainer extends React.Component {
   componentWillMount() {
-    window.setTimeout(() => {
-      this.setState({ x: 1 });
       this.setState({ x: 2 });
-    }, 3000);
   }
 
   componentWillUpdate() {}

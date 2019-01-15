@@ -30,12 +30,23 @@ owner
 }
 
 1.3 Fiber 对象{
-
+type: vnode.type || "ProxyComponent(react-hot-loader)" // 类型
+name:名称,
+stateNode：对应的真实 dom
+effectTag: 效果标签,
+containerStack：数组，存放上层容器的栈
+contextStack：数组，存放向下文栈
+microtasks：数组
+return：返回容器节点
 }
 
 ### 2 进行 render 渲染方法
 
-2.1 render 方法
+const topNodes // 数组，存放上层节点
+const topFibers // 数组，存放上层容器
+
+### 2.1 render 方法
+
 参数：
 vnode:上一步中创建的 React 组件虚拟 Dom 对象,
 container：需要放置页面的容器 DOM 对象,
