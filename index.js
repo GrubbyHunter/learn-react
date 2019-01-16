@@ -3,11 +3,11 @@ let ReactDOM = require("ReactDOM");
 
 class ComponentContainer extends React.Component {
   componentWillMount() {
-      this.setState({ x: 2 });
+      this.setState({ x: 2 }); 
   }
 
   componentWillUpdate() {}
-
+ 
   render() {
     let { x } = this.state;
 
