@@ -23,7 +23,7 @@ class ComponentContainer extends React.Component {
 
   componentDidUpdate() {}
 }
-debugger;
+
 ReactDOM.render(
   <ComponentContainer type={{ custom: "myType" }} />,
   document.body
