@@ -162,7 +162,12 @@ function reconcileDFS(fiber, info, deadline, ENOUGH_TIME) {
     // 为了性能起见，constructor, render, cWM,cWRP, cWU, gDSFP, render
     // getChildContext都可能 throw Exception，因此不逐一try catch
     // 通过fiber.errorHook得知出错的方法
-    updateClassComponent(fiber, info); // unshift context
+    if (fiber.tag < 3) {
+      updateClassComponent(fiber, info); // 生成react组件实例
+    }else {
+      updateHostComponent(fiber, info);  // 生成DOM节点实例
+    }
+    
   } catch (e) {
     occurError = true;
     pushError(fiber, fiber.errorHook, e);
@@ -226,7 +231,7 @@ function commitEffects(fiber) {
 }
 ```
 
-#### 2.1.8 updateClassComponent 方法，用于更新组件
+#### 2.1.8 updateClassComponent 方法，用于更新组件,产生具体的组件实例
 
 > 参数：
 > deadline:
@@ -249,7 +254,7 @@ function updateClassComponent(fiber, info) {
 }
 ```
 
-#### 2.1.9 updateHostComponent 方法，用于更新 DOM
+#### 2.1.9 updateHostComponent 方法，用于更新 DOM，产生具体的DOM节点，一般React组件遍历到最末端都是使用此方法产出dom节点
 
 > 参数：
 > deadline:

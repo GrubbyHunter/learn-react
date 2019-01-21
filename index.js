@@ -3,17 +3,19 @@ let ReactDOM = require("ReactDOM");
 
 class ComponentContainer extends React.Component {
   componentWillMount() {
-      this.setState({ x: 2 }); 
+    this.setState({ x: 2 });
   }
 
   componentWillUpdate() {}
- 
+
   render() {
     let { x } = this.state;
 
     return (
       <div name="tt" onClick={this.handleClick.bind(this)} obj={x}>
         {x}
+        <Child />
+        <Child />
       </div>
     );
   }
@@ -22,6 +24,12 @@ class ComponentContainer extends React.Component {
   componentDidMount() {}
 
   componentDidUpdate() {}
+}
+
+class Child extends React.Component {
+  render() {
+    return <div>child</div>;
+  }
 }
 
 ReactDOM.render(
