@@ -162,12 +162,30 @@ function reconcileDFS(fiber, info, deadline, ENOUGH_TIME) {
     // 为了性能起见，constructor, render, cWM,cWRP, cWU, gDSFP, render
     // getChildContext都可能 throw Exception，因此不逐一try catch
     // 通过fiber.errorHook得知出错的方法
-    if (fiber.tag < 3) {
-      updateClassComponent(fiber, info); // 生成react组件实例
-    }else {
-      updateHostComponent(fiber, info);  // 生成DOM节点实例
+    while (fiber) {
+      // 这个遍历花的时间较长，所以这里如果超过了一帧的时间则进行打断，然后从此处重新进行遍历
+      if (fiber.disposed || deadline.timeRemaining() <= ENOUGH_TIME) {
+        break;
+      }
+
+      if (fiber.tag < 3) {
+        updateClassComponent(fiber, info); // 生成react组件实例
+      } else {
+        updateHostComponent(fiber, info); // 生成DOM节点实例
+      }
+
+      // 遍历玩当前层级节点之后如果存在子节点，则继续遍历子节点
+      fiber = fiber.child;
+      if (fiber) {
+        continue;
+      }
+
+      // 遍历完子节点之后，如果存在后继节点，则往下遍历后继节点
+      fiber = fiber.sibling;
+      if (fiber) {
+        continue;
+      }
     }
-    
   } catch (e) {
     occurError = true;
     pushError(fiber, fiber.errorHook, e);
@@ -246,15 +264,23 @@ function updateClassComponent(fiber, info) {
     // componentWillMount
     applybeforeMountHooks(fiber, instance, props, newContext, contextStack);
   }
+  // 这里收集后续fiber需要执行的任务，使用质数相乘来记录任务
+  // 生成React Component记录的任务有
+  | HOOK     | 生命周期回调 | 11
+  | REF      | 设置引用     | 13
+  | DETACH   | 移出DOM树    | 17
+  | CALLBACK | 方法回调     | 19
+  | CAPTURE  | 错误处理     | 23
 
-  // 调用render生命周期函数
+
+  // 调用render方法获取fiber的子元素
   var rendered = applyCallback(instance, "render", []);
   // 拿去diff
   diffChildren(fiber, rendered);
 }
 ```
 
-#### 2.1.9 updateHostComponent 方法，用于更新 DOM，产生具体的DOM节点，一般React组件遍历到最末端都是使用此方法产出dom节点
+#### 2.1.9 updateHostComponent 方法，用于更新 DOM，产生具体的 DOM 节点，一般 React 组件遍历到最末端都是使用此方法产出 dom 节点
 
 > 参数：
 > deadline:
@@ -263,6 +289,12 @@ function updateClassComponent(fiber, info) {
 function updateHostComponent(fiber, info) {
   // 递归到虚拟dom树的最底层，返回的是dom对象，则调用此方法更新dom
   // 修改fiber的effectTag属性值，每增加一个执行方法，就乘以该方法对应的值然后赋值给effectTag
+    // 这里收集后续fiber需要执行的任务，使用质数相乘来记录任务
+  // 生成React Component记录的任务有
+  | RLACE   | 插入或移动 | 3
+  | CONTENT | 修改文本   | 5
+  | ATTR    | 修改属性   | 7
+
   // 拿去diff
   diffChildren(fiber, rendered);
 }
@@ -274,7 +306,24 @@ function updateHostComponent(fiber, info) {
 > deadline:
 
 ```javascript
-function diffChildren(fiber, rendered) {
-  // 修改fiber的effectTag属性值，每增加一个执行方法，就乘以该方法对应的值然后赋值给effectTag
+function diffChildren(parentFiber, rendered) {
+  // tree diff 树比较
+
+  // 首先打平children 赋值给parent，这样parentFiber的children就有值了
+  var newFibers = fiberizeChildren(children, parentFiber);
+
+  // 然后通过将
+  /**
+   * component diff 组件比较
+   * 1、同类型的组件，同class
+   * 2、不同类型的组件
+   * 3、 shouldComponentUpdate
+   */
+  /**
+   * element diff 节点比较
+   * 1、INSERT_MARKUP 插入节点
+   * 2、MOVE_EXISTING 移动节点
+   * 3、REMOVE_NODE 删除节点
+   */
 }
 ```
