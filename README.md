@@ -207,7 +207,7 @@ function commitDFS(effects) {
 }
 ```
 
-#### 2.1.6 commitDFSImpl 方法
+#### 2.1.6 commitDFSImpl 方法 实现对组件实例和真实节点的操作
 
 > 参数：
 > effects:
@@ -218,21 +218,29 @@ function commitDFSImpl(effects) {
   // "insertElement", "updateContent", "updateAttribute"
   // 优先轮询处理Fiber的子节点
   whille(fiber){
-    Renderer[domFns[i]](fiber);
-    if(fiber.child){
-      fiber = fiber.child
-      continue
-    }
+      // 依次执行插入节点，修改节点文本，修改节点属性
+      domEffects.forEach(function (effect, i) {
+        if (fiber.effectTag % effect == 0) {
+            Renderer[domFns[i]](fiber);
+            fiber.effectTag /= effect;
+          }
+      });
 
-    // 然后遍历Fiber的兄弟节点
-    whille(fiber){
-      commitEffects(fiber)
-
-      if(fiber.sibling){
-        fiber = fiber.sibling
+      // 处理完当前节点后如果有子节点先处理子节点
+      if(fiber.child){
+        fiber = fiber.child
         continue
       }
-    }
+
+      // 然后遍历Fiber的兄弟节点
+      whille(fiber){
+        commitEffects(fiber)
+        // 如果有后继节点，则处理后继节点
+        if(fiber.sibling){
+          fiber = fiber.sibling
+          continue
+        }
+      }
   }
 
 }
