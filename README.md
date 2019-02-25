@@ -99,6 +99,21 @@ function updateComponent(instance, state, callback, immediateUpdate) {
   // updateComponent 中进行一系列合并updateState的事件队列操作
   // 判断immediateUpdate为true时候才进行真正的更新
   // 即performWork(deadline)方法
+  // componentWillMount/componentWillReceivePropsf方法的钩子函数里面设置fiber.setout = true
+  // 则这两个方法里面setState不利己进行更新
+
+  if (fiber.setout) {
+    immediateUpdate = false;
+  } else if ((isBatching && !immediateUpdate) || fiber._hydrating) {
+    pushChildQueue(fiber, batchedtasks);
+  } else {
+    immediateUpdate = immediateUpdate || !fiber._hydrating;
+    pushChildQueue(fiber, microtasks);
+  }
+  mergeUpdates(fiber, state, isForced, callback);
+  if (immediateUpdate) {
+    Renderer.scheduleWork();
+  }
   Renderer.scheduleWork();
 }
 // deadline的默认值
@@ -335,3 +350,12 @@ function diffChildren(parentFiber, rendered) {
    */
 }
 ```
+
+# 关于 React Component 组件内部方法使用介绍
+
+## 1. setState
+
+> setState 实际上调用的是 updateComponent 方法
+> 多次 setState 的话，在 updateComponent 方法中，会将多个 state 的值存入 queue 队列中，然后 queue 赋值给 macroTask
+
+### 1.1 click 触发 setState 时候，首先会进行上述 updateComponent 中的操作，然后最后调用 Renderer.scheduleWork()，因为 updateComponent 方法存放了需要进行更新的 Fiber，所有 Renderer.scheduleWork()之行时候里面的 macroTask 中只有需要更新的 Fiber，只对这部分 Fiber 进行更新操作
