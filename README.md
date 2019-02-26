@@ -359,3 +359,5 @@ function diffChildren(parentFiber, rendered) {
 > 多次 setState 的话，在 updateComponent 方法中，会将多个 state 的值存入 queue 队列中，然后 queue 赋值给 macroTask
 
 ### 1.1 click 触发 setState 时候，首先会进行上述 updateComponent 中的操作，然后最后调用 Renderer.scheduleWork()，因为 updateComponent 方法存放了需要进行更新的 Fiber，所有 Renderer.scheduleWork()之行时候里面的 macroTask 中只有需要更新的 Fiber，只对这部分 Fiber 进行更新操作
+
+### 1.2 setTimeout 定时器 触发 setState 时候，首先会进行上述 updateComponent 中的操作，这里的全局变量直接为 true，直接将 Fiber 放入 microtasks 中，因为不走 react 的事务机制，则直接调用 Renderer.scheduleWork()进行更新，这里的 State 不会进行合并，render 会执行多次

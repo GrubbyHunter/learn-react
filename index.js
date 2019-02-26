@@ -12,6 +12,7 @@ class ComponentContainer extends React.Component {
   componentWillUpdate() {}
 
   render() {
+    debugger
     return (
       <div name="tt" onClick={this.handleClick.bind(this)} obj={{ x: 1 }}>
         {1}
