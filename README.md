@@ -155,7 +155,8 @@ function workLoop(deadline) {
   var fiber = macrotasks.shift();
   // 收集任务
   reconcileDFS(fiber, info, deadline, ENOUGH_TIME);
-
+  // 把最外层的fiber放入effects中作为需要update的对象
+  updateCommitQueue(fiber);
   // 宏任务队列没空的话继续循环手机宏队列任务
   if (macrotasks.length && deadline.timeRemaining() > ENOUGH_TIME) {
     workLoop(deadline);
@@ -194,11 +195,15 @@ function reconcileDFS(fiber, info, deadline, ENOUGH_TIME) {
       if (fiber) {
         continue;
       }
+      while (fiber) {
+        // 遍历完子节点之后，如果存在后继节点，则往下遍历后继节点
+        fiber = fiber.sibling;
+        if (fiber) {
+          continue;
+        }
 
-      // 遍历完子节点之后，如果存在后继节点，则往下遍历后继节点
-      fiber = fiber.sibling;
-      if (fiber) {
-        continue;
+        // 这里遍历完最终还是回到最外层的fiber
+        fiber = fiber.return;
       }
     }
   } catch (e) {
@@ -330,12 +335,14 @@ function updateHostComponent(fiber, info) {
 
 ```javascript
 function diffChildren(parentFiber, rendered) {
+  // react组件在挂载期时候，oldFiber一直都是空的，所以diffChild的时候一直没发派分需要更新的fiber到effect里面
   // tree diff 树比较
 
   // 首先打平children 赋值给parent，这样parentFiber的children就有值了
   var newFibers = fiberizeChildren(children, parentFiber);
-
-  // 然后通过将
+  // diff比对中，只有最后需要更新的fiber才会调用detachFiber放入effects$$1中
+  detachFiber(oldFiber, effects$$1);
+  // 数组元素
   /**
    * component diff 组件比较
    * 1、同类型的组件，同class
