@@ -23,7 +23,7 @@ class ComponentContainer extends React.Component {
 
     return (
       <div name="tt" onClick={this.handleClick.bind(this)}>
-        {a && <div>a{!b && <div>b</div>}</div>}
+        {a && <div>a</div>}
         {b && <div>b</div>}
         {/* {list.map((item, index) => (
           <Child key={index} data={item} />

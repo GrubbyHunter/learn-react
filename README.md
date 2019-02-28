@@ -340,14 +340,76 @@ function diffChildren(parentFiber, rendered) {
 
   // 首先打平children 赋值给parent，这样parentFiber的children就有值了
   var newFibers = fiberizeChildren(children, parentFiber);
-  // diff比对中，只有最后需要更新的fiber才会调用detachFiber放入effects$$1中
-  detachFiber(oldFiber, effects$$1);
+  // 首先遍历旧的fiber
+  for (var i in oldFibers) {
+    var newFiber = newFibers[i];
+    var oldFiber = oldFibers[i];
+    // 如果新的子fiber和旧的fiber类型一致，则旧的fiber的key以新的为准
+    if (newFiber && newFiber.type === oldFiber.type) {
+      matchFibers[i] = oldFiber;
+      if (newFiber.key != null) {
+        oldFiber.key = newFiber.key;
+      }
+      continue;
+    }
+    // 数组中节点元素不存在，直接删除
+    // 如果新的子fiber元素没有，但是旧的子fiber有，则将旧的fiber增加DETACH事件
+    // 并将旧的子fiber放置到需要处理的effects$$1中，用于后续的删除
+    detachFiber(oldFiber, effects$$1);
+  }
+
+  // 遍历新的fiber
+  for (var _i in newFibers) {
+    var _newFiber = newFibers[_i];
+    var _oldFiber = matchFibers[_i];
+    var alternate = null;
+    if (_oldFiber) {
+      // isSameNode需要type和key都相同才会成立，注意，这里如果两个key都是null也是成立的
+      if (isSameNode(_oldFiber, _newFiber)) {
+        alternate = new Fiber(_oldFiber);
+        var oldRef = _oldFiber.ref;
+        _newFiber = extend(_oldFiber, _newFiber);
+        delete _newFiber.disposed;
+        _newFiber.alternate = alternate;
+        if (_newFiber.ref && _newFiber.deleteRef) {
+          delete _newFiber.ref;
+          delete _newFiber.deleteRef;
+        }
+        if (oldRef && oldRef !== _newFiber.ref) {
+          effects$$1.push(alternate);
+        }
+        if (_newFiber.tag === 5) {
+          _newFiber.lastProps = alternate.props;
+        }
+      } else {
+        //
+        detachFiber(_oldFiber, effects$$1);
+      }
+    } else {
+      /**
+       * component diff 组件比较
+       * 不同类型的组件，直接移除
+       */
+      _newFiber = new Fiber(_newFiber);
+    }
+    newFibers[_i] = _newFiber;
+    _newFiber.index = index++;
+    _newFiber.return = parentFiber;
+    if (prevFiber) {
+      prevFiber.sibling = _newFiber;
+      _newFiber.forward = prevFiber;
+    } else {
+      parentFiber.child = _newFiber;
+      _newFiber.forward = null;
+    }
+    prevFiber = _newFiber;
+  }
+
   // 数组元素
   /**
    * component diff 组件比较
    * 1、同类型的组件，同class
-   * 2、不同类型的组件
-   * 3、 shouldComponentUpdate
+   * 2、 shouldComponentUpdate
    */
   /**
    * element diff 节点比较
