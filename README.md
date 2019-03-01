@@ -222,7 +222,20 @@ function reconcileDFS(fiber, info, deadline, ENOUGH_TIME) {
 function commitDFS(effects) {
   // 真正的批量更新
   Renderer.batchedUpdates(() => {
-    commitDFSImpl;
+    // 遍历需要处理的Fiber
+    while ((el = effects$$1.shift())) {
+      // 如果是需要删除当前Fiber，则直接进行删除
+      if (el.effectTag === DETACH && el.caughtError) {
+        disposeFiber(el);
+      } else {
+        commitDFSImpl(el);
+      }
+      // 最终收集完需要删除的dom统一进行删除
+      if (domRemoved.length) {
+        domRemoved.forEach(Renderer.removeElement);
+        domRemoved.length = 0;
+      }
+    }
   });
 }
 ```
@@ -234,17 +247,28 @@ function commitDFS(effects) {
 
 ```javascript
 function commitDFSImpl(effects) {
-  // 这个里面通过eventTag事件机制使用DFS深度优先遍历去批量执行
-  // "insertElement", "updateContent", "updateAttribute"
+
   // 优先轮询处理Fiber的子节点
   whille(fiber){
-      // 依次执行插入节点，修改节点文本，修改节点属性
-      domEffects.forEach(function (effect, i) {
-        if (fiber.effectTag % effect == 0) {
-            Renderer[domFns[i]](fiber);
-            fiber.effectTag /= effect;
-          }
-      });
+      // 当前fiber的effects属性里面有值，则先用disposeFiber处理effects
+      // effects里面有eventTag被标记为删除的2元素，则在disposeFiber中会放入domRemoved中用于后续的删除
+      if (fiber.effects && fiber.effects.length) {
+          fiber.effects.forEach(disposeFiber);
+          delete fiber.effects;
+      }
+
+      // 存在插入或者移动操作则进行对应操作
+      if (fiber.effectTag % PLACE == 0) {
+        domEffects.forEach(function (effect, i) {
+            // 依次执行插入节点，修改节点文本，修改节点属性
+            if (fiber.effectTag % effect == 0) {
+                // "insertElement", "updateContent", "updateAttribute"
+                Renderer[domFns[i]](fiber);
+                fiber.effectTag /= effect;
+            }
+        });
+        fiber.hasMounted = true;
+      }
 
       // 处理完当前节点后如果有子节点先处理子节点
       if(fiber.child){
@@ -354,7 +378,7 @@ function diffChildren(parentFiber, rendered) {
     }
     // 数组中节点元素不存在，直接删除
     // 如果新的子fiber元素没有，但是旧的子fiber有，则将旧的fiber增加DETACH事件
-    // 并将旧的子fiber放置到需要处理的effects$$1中，用于后续的删除
+    // 并将旧的子fiber放置parent fiber的effects属性里面 也就是(effects$$1)，用于后续的删除
     detachFiber(oldFiber, effects$$1);
   }
 
