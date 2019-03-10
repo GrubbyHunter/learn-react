@@ -1,6 +1,17 @@
-# anu study
+# anu.js study
+
+> 本项目是关于类似 react 的开源框架 anu.js 的学习，特别是 anujs 针对 react v16 版本的改进地方会有比较详细的说明，如有不对的地方欢迎指正
 
 ## 运行流程
+
+yarn install  
+npm run dev
+
+## 流程图
+
+![avatar](/show.jpg)
+
+## 常用方法和实例介绍
 
 ### **1 React 组件实例**
 
@@ -46,12 +57,7 @@
 }
 ```
 
-### **2 进行 render 渲染方法**
-
-const topNodes // 数组，存放上层节点
-const topFibers // 数组，存放上层容器
-
-#### 2.1 render 方法
+#### 1.4 render 方法
 
 > 参数：  
 > vnode:上一步中创建的 React 组件虚拟 Dom 对象  
@@ -72,7 +78,6 @@ function render(vnode, root, callback) {
     immediateUpdate = true;
   }
 
-  // 更新组件,这里的updateComponent是一个重要的方法，很多性能优化的点都在这个里面做的
   updateComponent(
     container.hostRoot,
     {
@@ -85,53 +90,33 @@ function render(vnode, root, callback) {
 }
 ```
 
-#### 2.1.1 updateComponent 方法
+## 具体的实现流程
 
-> updateComponent 方法为组件的 setState/forceUpdate 的具体实现。  
-> 参数：  
-> instance:虚拟根组件，即顶级的根组件  
-> state：组件内部传递的参数  
-> callback: 更新完成回调函数  
-> immediateUpdate：是否立即更新
+### 1 updateComponent
+
+> 无论是初始化时候 ReactDOM.reader 方法，还是组件内部的 setState 方法，最终的组件挂载，生成真正的 dom 元素，实现都是在 updateComponent 方法里面  
+> 这里我们简化来看 pushChildQueue 实际上只是把需要处理的 fiber 对象放入队列中，mergeUpdates 也仅仅是合并 state 的操作，真正的更新是在 scheduleWork 方法中进行，所以只有 immediateUpdate 为 true 时候才会进行更新  
+> 分情况看，组件初次挂载到节点上(ReactDOM.reader 方)，这时候是会进行直接更新的，但是像 onclick 的回调函数里面触发的 setState，就不会立即进行更新的，而是在最终时间执行完后合并 state 最终进行更新
 
 ```javascript
 function updateComponent(instance, state, callback, immediateUpdate) {
-  // updateComponent 中进行一系列合并updateState的事件队列操作
-  // 判断immediateUpdate为true时候才进行真正的更新
-  // 即performWork(deadline)方法
-  // componentWillMount/componentWillReceivePropsf方法的钩子函数里面设置fiber.setout = true
-  // 则这两个方法里面setState不利己进行更新
+  pushChildQueue(fiber, microtasks);
 
-  if (fiber.setout) {
-    immediateUpdate = false;
-  } else if ((isBatching && !immediateUpdate) || fiber._hydrating) {
-    pushChildQueue(fiber, batchedtasks);
-  } else {
-    immediateUpdate = immediateUpdate || !fiber._hydrating;
-    pushChildQueue(fiber, microtasks);
-  }
   mergeUpdates(fiber, state, isForced, callback);
+
   if (immediateUpdate) {
     Renderer.scheduleWork();
   }
-  Renderer.scheduleWork();
 }
-// deadline的默认值
-let deadline = {
-  didTimeout: false,
-  timeRemaining() {
-    return 2;
-  }
-};
+
 Renderer.scheduleWork = function() {
   performWork(deadline);
 };
 ```
 
-#### 2.1.2 performWork 方法
+### 2 performWork
 
-> 参数：
-> deadline:
+> 这个方法也仅仅是递归调用自己
 
 ```javascript
 function performWork(deadline) {
@@ -144,10 +129,14 @@ function performWork(deadline) {
 }
 ```
 
-#### 2.1.3 workLoop 方法
+### 3 workLoop
 
-> 参数：
-> deadline:
+> workLoop 里面实际是也是递归调用自己，从上一步收集的队列里面拿出需要处理的 Fiber 进行处理  
+> reconcileDFS 实际上就用来收集 Fiber 的事件的，anujs 简化了 react 的事件系统，通过质数相乘的方式，让每个 Fiber 的 effectTag 属性能记住这个 fiber 有哪些事件需要处理(比如 insert、update、delete)  
+> commitDFS 里面则是执行真正的对 dom 元素的操作，通过上一步的记录，知道 fiber 有哪些事件，并执行对应的事件进行处理  
+> 这里要强调一点事，react v16 以后的 fiber 不再是树结构，而是链表结构(这个后续会说明)，所以这个 workLoop 递归如果在一帧时间不够的情况下会中断 fiber 的时间收集(reconcileDFS)，然后去执行 dom 操作(commitDFS)，因为是链表结构所以下一次进来仍能从上一次的 fiber 继续递归收集任务  
+> reconcileDFS 阶段实际上是十分耗时的，这样打断递归，同时使用 requestIdleCallback 定时器重新进来收集事件的操作，这是一种非常有效的优化手段。这样的话将之前递归积累的堆栈直接给释放了，浏览器针对这种定时器也会进行优化，从而使代码执行更快。  
+> 就好比游泳运动员一直头沉到水下游泳，如果头是不是抬到水面上呼吸进行调整的话，自然也能游得更快^\_^
 
 ```javascript
 function workLoop(deadline) {
@@ -167,10 +156,9 @@ function workLoop(deadline) {
 }
 ```
 
-#### 2.1.4 reconcileDFS 方法
+### 4 reconcileDFS
 
-> 参数：
-> deadline:
+> 这个方法主要是通过 DFS 遍历一颗 dom 树，同时它里面会针对是 React 组件实例还是 dom 节点分别进行处理
 
 ```javascript
 function reconcileDFS(fiber, info, deadline, ENOUGH_TIME) {
@@ -213,10 +201,120 @@ function reconcileDFS(fiber, info, deadline, ENOUGH_TIME) {
 }
 ```
 
-#### 2.1.5 commitDFS 方法
+### 5 updateClassComponent
 
-> 参数：
-> effects:
+> 用于处理具体的组件 Fiber 实例，同时调用组件 reader 之前的各个生命周期函数，同时收集需要处理的 React 组件对应的事件
+
+```javascript
+function updateClassComponent(fiber, info) {
+  // 执行Fiber对象的生命周期钩子函数
+  if (fiber.hasMounted) {
+    // componentWillReceiveProps、shouldComponentUpdate、componentWillUpdate
+    applybeforeUpdateHooks(fiber, instance, props, newContext, contextStack);
+  } else {
+    // componentWillMount
+    applybeforeMountHooks(fiber, instance, props, newContext, contextStack);
+  }
+  // 这里收集后续fiber需要执行的任务，使用质数相乘来记录任务
+  // 生成React Component记录的任务有
+  | HOOK     | 生命周期回调 | 11
+  | REF      | 设置引用     | 13
+  | DETACH   | 移出DOM树    | 17
+  | CALLBACK | 方法回调     | 19
+  | CAPTURE  | 错误处理     | 23
+
+
+  // 调用render方法获取fiber的子元素
+  var rendered = applyCallback(instance, "render", []);
+  // 拿去diff
+  diffChildren(fiber, rendered);
+}
+```
+
+### 6 updateHostComponent
+
+> 用于处理 DOM 节点实例，一般 React 组件遍历到最末端都是使用此方法产出 dom 节点，使用 forwardFiber 记录 dom 节点对应的前一个元素，使用 insertPoint 记录父节点中最后一个节点的位置，这里会收集节点上需要处理的事件
+
+```javascript
+function updateHostComponent(fiber, info) {
+  // forwardFiber记录dom节点对应的前一个元素
+  fiber.forwardFiber = parent.insertPoint;
+  // insertPoint记录父节点中最后一个节点的位置
+  parent.insertPoint = fiber;
+  fiber.effectTag = PLACE;
+  // 拿去diff
+  diffChildren(fiber, rendered);
+}
+```
+
+### 7 diffChildren
+
+> 比对新旧 dom 树上的节点，同一级的 React 组件，如果类型不同直接删除，同时在此方法中会将 Fiber 设置 child、parent 和 sibling 三个属性，这样树结构就变成了一个链表结构
+
+```javascript
+function diffChildren(parentFiber, rendered) {
+  // 首先打平children 赋值给parent，这样parentFiber的children就有值了
+  var newFibers = fiberizeChildren(children, parentFiber);
+  // 首先遍历旧的fiber
+  for (var i in oldFibers) {
+    var newFiber = newFibers[i];
+    var oldFiber = oldFibers[i];
+    // 如果新的子fiber和旧的fiber类型一致，则旧的fiber的key以新的为准
+    if (newFiber && newFiber.type === oldFiber.type) {
+      matchFibers[i] = oldFiber;
+      if (newFiber.key != null) {
+        oldFiber.key = newFiber.key;
+      }
+      continue;
+    }
+    // 数组中节点元素不存在，直接删除
+    // 如果新的子fiber元素没有，但是旧的子fiber有，则将旧的fiber增加DETACH事件
+    // 并将旧的子fiber放置parent fiber的effects属性里面 也就是(effects$$1)，用于后续的删除
+    detachFiber(oldFiber, effects$$1);
+  }
+
+  // 遍历新的fiber
+  for (var _i in newFibers) {
+    var _newFiber = newFibers[_i];
+    var _oldFiber = matchFibers[_i];
+    var alternate = null;
+    if (_oldFiber) {
+      // isSameNode需要type和key都相同才会成立，注意，这里如果两个key都是null也是成立的
+      if (isSameNode(_oldFiber, _newFiber)) {
+        alternate = new Fiber(_oldFiber);
+        var oldRef = _oldFiber.ref;
+        _newFiber = extend(_oldFiber, _newFiber);
+      } else {
+        // 直接删除
+        detachFiber(_oldFiber, effects$$1);
+      }
+    } else {
+      /**
+       * component diff 组件比较
+       * 不同类型的组件，直接移除
+       */
+      _newFiber = new Fiber(_newFiber);
+    }
+    newFibers[_i] = _newFiber;
+    _newFiber.index = index++;
+    _newFiber.return = parentFiber;
+    if (prevFiber) {
+      // 记录他的兄弟节点
+      prevFiber.sibling = _newFiber;
+      _newFiber.forward = prevFiber;
+    } else {
+      // 记录它的子节点
+      parentFiber.child = _newFiber;
+      _newFiber.forward = null;
+    }
+    prevFiber = _newFiber;
+  }
+}
+```
+
+### 8 commitDFS
+
+> dom 节点的操作
 
 ```javascript
 function commitDFS(effects) {
@@ -240,10 +338,9 @@ function commitDFS(effects) {
 }
 ```
 
-#### 2.1.6 commitDFSImpl 方法 实现对组件实例和真实节点的操作
+### 9 commitDFSImpl 方
 
-> 参数：
-> effects:
+> 实现对组件实例和真实节点的操作
 
 ```javascript
 function commitDFSImpl(effects) {
@@ -290,167 +387,36 @@ function commitDFSImpl(effects) {
 }
 ```
 
-#### 2.1.7 commitEffects 方法
+### 10 insertElement
 
-> 参数：
-> Fiber:
-
-```javascript
-function commitEffects(fiber) {
-  // 执行生命周期函数componentDidUpdate、componentDidMount
-}
-```
-
-#### 2.1.8 updateClassComponent 方法，用于更新组件,产生具体的组件实例
-
-> 参数：
-> deadline:
+> 这里特别要说一下插入操作,updateHostComponent 中记录了各个节点的前一个节点，以及各个节点的父节点的最后一个节点用来插入时候作比较。
 
 ```javascript
-function updateClassComponent(fiber, info) {
-  // 执行Fiber对象的生命周期钩子函数
-  if (fiber.hasMounted) {
-    // componentWillReceiveProps、shouldComponentUpdate、componentWillUpdate
-    applybeforeUpdateHooks(fiber, instance, props, newContext, contextStack);
-  } else {
-    // componentWillMount
-    applybeforeMountHooks(fiber, instance, props, newContext, contextStack);
-  }
-  // 这里收集后续fiber需要执行的任务，使用质数相乘来记录任务
-  // 生成React Component记录的任务有
-  | HOOK     | 生命周期回调 | 11
-  | REF      | 设置引用     | 13
-  | DETACH   | 移出DOM树    | 17
-  | CALLBACK | 方法回调     | 19
-  | CAPTURE  | 错误处理     | 23
-
-
-  // 调用render方法获取fiber的子元素
-  var rendered = applyCallback(instance, "render", []);
-  // 拿去diff
-  diffChildren(fiber, rendered);
-}
-```
-
-#### 2.1.9 updateHostComponent 方法，用于更新 DOM，产生具体的 DOM 节点，一般 React 组件遍历到最末端都是使用此方法产出 dom 节点
-
-> 参数：
-> deadline:
-
-```javascript
-function updateHostComponent(fiber, info) {
-  // 递归到虚拟dom树的最底层，返回的是dom对象，则调用此方法更新dom
-  // 修改fiber的effectTag属性值，每增加一个执行方法，就乘以该方法对应的值然后赋值给effectTag
-    // 这里收集后续fiber需要执行的任务，使用质数相乘来记录任务
-  // 生成React Component记录的任务有
-  | RLACE   | 插入或移动 | 3
-  | CONTENT | 修改文本   | 5
-  | ATTR    | 修改属性   | 7
-
-  // 拿去diff
-  diffChildren(fiber, rendered);
-}
-```
-
-#### 2.1.10 diffChildren 方法，比对子节点
-
-> 参数：
-> deadline:
-
-```javascript
-function diffChildren(parentFiber, rendered) {
-  // react组件在挂载期时候，oldFiber一直都是空的，所以diffChild的时候一直没发派分需要更新的fiber到effect里面
-  // tree diff 树比较
-
-  // 首先打平children 赋值给parent，这样parentFiber的children就有值了
-  var newFibers = fiberizeChildren(children, parentFiber);
-  // 首先遍历旧的fiber
-  for (var i in oldFibers) {
-    var newFiber = newFibers[i];
-    var oldFiber = oldFibers[i];
-    // 如果新的子fiber和旧的fiber类型一致，则旧的fiber的key以新的为准
-    if (newFiber && newFiber.type === oldFiber.type) {
-      matchFibers[i] = oldFiber;
-      if (newFiber.key != null) {
-        oldFiber.key = newFiber.key;
-      }
-      continue;
+function insertElement(fiber) {
+  var dom = fiber.stateNode,
+    parent = fiber.parent;
+  try {
+    var insertPoint = fiber.forwardFiber ? fiber.forwardFiber.stateNode : null;
+    var after = insertPoint ? insertPoint.nextSibling : parent.firstChild;
+    // 如果当前节点的前一个节点的后一个节点不是当前节点，则当前节点需要移动到后一个节点之前，所以这里特别要注意，往前移动可能要移动多次，但是往后移动只需要移动一次
+    if (after == dom) {
+      return;
     }
-    // 数组中节点元素不存在，直接删除
-    // 如果新的子fiber元素没有，但是旧的子fiber有，则将旧的fiber增加DETACH事件
-    // 并将旧的子fiber放置parent fiber的effects属性里面 也就是(effects$$1)，用于后续的删除
-    detachFiber(oldFiber, effects$$1);
-  }
-
-  // 遍历新的fiber
-  for (var _i in newFibers) {
-    var _newFiber = newFibers[_i];
-    var _oldFiber = matchFibers[_i];
-    var alternate = null;
-    if (_oldFiber) {
-      // isSameNode需要type和key都相同才会成立，注意，这里如果两个key都是null也是成立的
-      if (isSameNode(_oldFiber, _newFiber)) {
-        alternate = new Fiber(_oldFiber);
-        var oldRef = _oldFiber.ref;
-        _newFiber = extend(_oldFiber, _newFiber);
-        delete _newFiber.disposed;
-        _newFiber.alternate = alternate;
-        if (_newFiber.ref && _newFiber.deleteRef) {
-          delete _newFiber.ref;
-          delete _newFiber.deleteRef;
-        }
-        if (oldRef && oldRef !== _newFiber.ref) {
-          effects$$1.push(alternate);
-        }
-        if (_newFiber.tag === 5) {
-          _newFiber.lastProps = alternate.props;
-        }
-      } else {
-        //
-        detachFiber(_oldFiber, effects$$1);
-      }
-    } else {
-      /**
-       * component diff 组件比较
-       * 不同类型的组件，直接移除
-       */
-      _newFiber = new Fiber(_newFiber);
+    if (after === null && dom === parent.lastChild) {
+      return;
     }
-    newFibers[_i] = _newFiber;
-    _newFiber.index = index++;
-    _newFiber.return = parentFiber;
-    if (prevFiber) {
-      prevFiber.sibling = _newFiber;
-      _newFiber.forward = prevFiber;
-    } else {
-      parentFiber.child = _newFiber;
-      _newFiber.forward = null;
-    }
-    prevFiber = _newFiber;
+    Renderer.inserting = fiber.tag === 5 && document.activeElement;
+    parent.insertBefore(dom, after);
+    Renderer.inserting = null;
+  } catch (e) {
+    throw e;
   }
-
-  // 数组元素
-  /**
-   * component diff 组件比较
-   * 1、同类型的组件，同class
-   * 2、 shouldComponentUpdate
-   */
-  /**
-   * element diff 节点比较
-   * 1、INSERT_MARKUP 插入节点
-   * 2、MOVE_EXISTING 移动节点
-   * 3、REMOVE_NODE 删除节点
-   */
 }
 ```
 
-# 关于 React Component 组件内部方法使用介绍
+### 11 setState
 
-## 1. setState
-
-> setState 实际上调用的是 updateComponent 方法
-> 多次 setState 的话，在 updateComponent 方法中，会将多个 state 的值存入 queue 队列中，然后 queue 赋值给 macroTask
-
-### 1.1 click 触发 setState 时候，首先会进行上述 updateComponent 中的操作，然后最后调用 Renderer.scheduleWork()，因为 updateComponent 方法存放了需要进行更新的 Fiber，所有 Renderer.scheduleWork()之行时候里面的 macroTask 中只有需要更新的 Fiber，只对这部分 Fiber 进行更新操作
-
-### 1.2 setTimeout 定时器 触发 setState 时候，首先会进行上述 updateComponent 中的操作，这里的全局变量直接为 true，直接将 Fiber 放入 microtasks 中，因为不走 react 的事务机制，则直接调用 Renderer.scheduleWork()进行更新，这里的 State 不会进行合并，render 会执行多次
+> setState 实际上调用的是 updateComponent 方法  
+> 多次 setState 的话，在 updateComponent 方法中，会将多个 state 的值存入 queue 队列中，然后 queue 赋值给 macroTask  
+> click 触发 setState 时候，首先会进行上述 updateComponent 中的操作，然后最后调用 Renderer.scheduleWork()，因为 updateComponent 方法存放了需要进行更新的 Fiber，所有 Renderer.scheduleWork()之行时候里面的 macroTask 中只有需要更新的 Fiber，只对这部分 Fiber 进行更新操作  
+> setTimeout 定时器 触发 setState 时候，首先会进行上述 updateComponent 中的操作，这里的全局变量直接为 true，直接将 Fiber 放入 microtasks 中，因为不走 react 的事务机制，则直接调用 Renderer.scheduleWork()进行更新，这里的 State 不会进行合并，render 会执行多次

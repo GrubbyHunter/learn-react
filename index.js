@@ -3,47 +3,47 @@ let ReactDOM = require("ReactDOM");
 
 class ComponentContainer extends React.Component {
   componentWillMount() {
-    // this.setState({
-    //   list: [
-    //     { name: "a", age: 18 },
-    //     { name: "b", age: 19 },
-    //     { name: "c", age: 20 }
-    //   ]
-    // });
     this.setState({
-      a: true,
-      b: true
+      list: [
+        { name: "a", age: 18 },
+        { name: "b", age: 19 },
+        { name: "c", age: 20 },
+        { name: "d", age: 21 }
+      ]
     });
+    // this.setState({
+    //   a: true,
+    //   b: true
+    // });
   }
 
-  componentWillUpdate() {}
+  //componentWillUpdate() {}
 
   render() {
-    let { a, b } = this.state;
+    let { list } = this.state;
 
     return (
       <div name="tt" onClick={this.handleClick.bind(this)}>
-        {a && <div>a</div>}
-        {b && <div>b</div>}
-        {/* {list.map((item, index) => (
-          <Child key={index} data={item} />
-        ))} */}
+        {list.map(item => (
+          <Child key={item.name} data={item} />
+        ))}
       </div>
     );
   }
 
   handleClick() {
-    // this.setState({
-    //   list: [
-    //     { name: "a", age: 18 },
-    //     { name: "d", age: 19 },
-    //     { name: "c", age: 20 }
-    //   ]
-    // });
     this.setState({
-      a: true,
-      b: false
+      list: [
+        { name: "b", age: 19 },
+        { name: "c", age: 20 },
+        { name: "d", age: 21 },
+        { name: "a", age: 18 }
+      ]
     });
+    // this.setState({
+    //   a: true,
+    //   b: false
+    // });
   }
   componentDidMount() {}
 
@@ -52,11 +52,11 @@ class ComponentContainer extends React.Component {
 
 class Child extends React.Component {
   render() {
-    let { name, age } = this.props;
+    let { name, age } = this.props.data;
 
     return (
       <div>
-        name is ${name}, age is ${age}
+        name is {name}, age is {age}
       </div>
     );
   }
